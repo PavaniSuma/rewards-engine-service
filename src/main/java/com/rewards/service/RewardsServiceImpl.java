@@ -1,14 +1,14 @@
 package com.rewards.service;
 
-import org.springframework.stereotype.Service;
-
 import com.rewards.dto.CustomerRewardsResponse;
 import com.rewards.dto.MonthlyRewardPoints;
 import com.rewards.entity.Transaction;
 import com.rewards.exceptions.ResourceNotFoundException;
 import com.rewards.repository.TransactionRepository;
 import com.rewards.util.RewardsCalculator;
+import org.springframework.stereotype.Service;
 
+import java.math.BigDecimal;
 import java.time.Month;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -19,6 +19,7 @@ public class RewardsServiceImpl implements RewardsService {
     private final TransactionRepository repository;
     private final RewardsCalculator calculator;
 
+ 
     public RewardsServiceImpl(TransactionRepository repository,
                               RewardsCalculator calculator) {
         this.repository = repository;
@@ -26,110 +27,92 @@ public class RewardsServiceImpl implements RewardsService {
     }
 
     /**
-     * Get rewards for a single customer
+     *  Get rewards for a customer with customerID
      */
     @Override
     public CustomerRewardsResponse getRewardsByCustomer(Long customerId) {
 
-        List<Transaction> transactions = repository.findByCustomerId(customerId);
+        List<Transaction> transactions =
+                repository.findByCustomerId(customerId);
 
         if (transactions.isEmpty()) {
             throw new ResourceNotFoundException(
                     "No transactions found for customer " + customerId);
         }
 
-        // Group transactions by Month
-        
-        Map<Month, List<Transaction>> groupedByMonth =
-                        transactions.stream()
-                                .collect(Collectors.groupingBy(
-                                        t -> t.getDate().getMonth(),
-                                        TreeMap :: new, Collectors.toList()
-                                ));
-
-        List<MonthlyRewardPoints> monthlyList = new ArrayList<>();
-        int totalPoints = 0;
-
-        for (Map.Entry<Month, List<Transaction>> entry : groupedByMonth.entrySet()) {
-
-            Month month = entry.getKey();
-            List<Transaction> txnList = entry.getValue();
-
-            int monthlyPoints = 0;
-
-            for (Transaction t : txnList) {
-                monthlyPoints += calculator.calculate(t.getAmount());
-            }
-
-            totalPoints += monthlyPoints;
-
-            monthlyList.add(
-                    new MonthlyRewardPoints(month.name(), monthlyPoints)
-            );
-        }
-
-        return new CustomerRewardsResponse(customerId, monthlyList, totalPoints);
+        return calculateRewardsForCustomer(customerId, transactions);
     }
 
     /**
-     * Get rewards for all customers
+     *Get rewards for all customers
      */
     @Override
     public List<CustomerRewardsResponse> getAllRewards() {
 
-        List<Transaction> transactions = repository.findAll();
+        List<Transaction> allTransactions = repository.findAll();
 
-        if (transactions.isEmpty()) {
-            throw new ResourceNotFoundException("No transactions available");
+        if (allTransactions.isEmpty()) {
+            throw new ResourceNotFoundException("No transactions found");
         }
 
-        // Group by customerId
-        Map<Long, List<Transaction>> groupedByCustomer =
-                transactions.stream()
+        //Group by customerId
+        Map<Long, List<Transaction>> transactionsByCustomer =
+                allTransactions.stream()
                         .collect(Collectors.groupingBy(Transaction::getCustomerId));
 
-        List<CustomerRewardsResponse> responseList = new ArrayList<>();
+        //Calculating rewards for each customer
+        return transactionsByCustomer.entrySet().stream()
+                .map(entry -> calculateRewardsForCustomer(
+                        entry.getKey(),
+                        entry.getValue()
+                ))
+                .collect(Collectors.toList());
+    }
 
-        for (Map.Entry<Long, List<Transaction>> customerEntry : groupedByCustomer.entrySet()) {
+   
+    private CustomerRewardsResponse calculateRewardsForCustomer(
+            Long customerId,
+            List<Transaction> transactions) {
 
-            Long customerId = customerEntry.getKey();
-            List<Transaction> customerTransactions = customerEntry.getValue();
+       
+        Map<Month, List<Transaction>> groupedByMonth =
+                transactions.stream()
+                        .collect(Collectors.groupingBy(
+                                t -> t.getDate().getMonth()
+                        ));
 
-            // Group by Month (sorted)
-            Map<Month, List<Transaction>> groupedByMonth =
-                    new TreeMap<>(
-                            customerTransactions.stream()
-                                    .collect(Collectors.groupingBy(
-                                            t -> t.getDate().getMonth()
-                                    ))
-                    );
+        List<MonthlyRewardPoints> monthlyList = new ArrayList<>();
+        int totalPoints = 0;
 
-            List<MonthlyRewardPoints> monthlyList = new ArrayList<>();
-            int totalPoints = 0;
+        // Loop each month
+        for (Map.Entry<Month, List<Transaction>> entry : groupedByMonth.entrySet()) {
 
-            for (Map.Entry<Month, List<Transaction>> entry : groupedByMonth.entrySet()) {
+            Month month = entry.getKey();
+            List<Transaction> monthlyTransactions = entry.getValue();
 
-                Month month = entry.getKey();
-                List<Transaction> txnList = entry.getValue();
+            // Total amount per month
+            
+            BigDecimal totalAmount = monthlyTransactions.stream()
+                    .map(Transaction::getAmount)
+                    .reduce(BigDecimal.ZERO,
+                    		BigDecimal :: add);
+       
 
-                int monthlyPoints = 0;
+            // Reward points per month
+            int monthlyPoints = monthlyTransactions.stream()
+                    .mapToInt(t -> calculator.calculate(t.getAmount()))
+                    .sum();
 
-                for (Transaction t : txnList) {
-                    monthlyPoints += calculator.calculate(t.getAmount());
-                }
+            totalPoints += monthlyPoints;
 
-                totalPoints += monthlyPoints;
-
-                monthlyList.add(
-                        new MonthlyRewardPoints(month.name(), monthlyPoints)
-                );
-            }
-
-            responseList.add(
-                    new CustomerRewardsResponse(customerId, monthlyList, totalPoints)
-            );
+            monthlyList.add(
+                    new MonthlyRewardPoints(month, totalAmount, monthlyPoints));
         }
 
-        return responseList;
+        return new CustomerRewardsResponse(
+                customerId,
+                monthlyList,
+                totalPoints
+        );
     }
 }

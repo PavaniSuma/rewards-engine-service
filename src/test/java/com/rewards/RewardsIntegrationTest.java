@@ -53,7 +53,7 @@ class RewardsIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.customerId").value(1))
                 .andExpect(jsonPath("$.totalPoints").exists())
-                .andExpect(jsonPath("$.monthlyPoints").exists());
+                .andExpect(jsonPath("$.monthlyPoints.length()").value(3));
     }
 
     // Test when Customer not found

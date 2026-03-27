@@ -7,4 +7,9 @@ CREATE TABLE transactions (
 
 INSERT INTO transactions (customer_id, amount, date) VALUES (1, 120, '2024-01-10');
 INSERT INTO transactions (customer_id, amount, date) VALUES (1, 75, '2024-02-05');
-INSERT INTO transactions (customer_id, amount, date) VALUES (2, 200, '2024-01-15');
+INSERT INTO transactions (customer_id, amount, date) VALUES (1, 200, '2024-03-15');
+
+
+INSERT INTO transactions (customer_id, amount, date) VALUES (2, 110, '2024-01-10');
+INSERT INTO transactions (customer_id, amount, date) VALUES (2, 90, '2024-02-05');
+INSERT INTO transactions (customer_id, amount, date) VALUES (2, 150, '2024-03-15');

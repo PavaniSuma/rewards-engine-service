@@ -26,5 +26,6 @@ public class CustomerRewardsResponse {
 
     public int getTotalPoints() {
         return totalPoints;
-    }
+	}
+
 }

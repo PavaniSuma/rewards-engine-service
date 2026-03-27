@@ -1,97 +1,94 @@
-# rewards-engine-service
+# Customer Rewards Service
 
-Reward calculation based on purchased records
+## Overview
 
-Rewards Engine Service is a Spring Boot-based REST API that calculates customer reward points based on their transaction history.
+This project provides REST APIs to calculate reward points for customers based on their transactions.
 
-This application calculates reward points for customers based on their transactions.
+A retailer offers a rewards program:
 
-It exposes REST APIs to:
+* 2 points for every dollar spent over $100
+* 1 point for every dollar spent between $50 and $100
 
-Get reward points for a single customer
-Get reward points for all customers
+The system calculates:
 
- **Business Logic**
+* Monthly reward points
+* Total reward points
+* For last 3 months transactions
 
-Reward points are calculated based on the following :
+---
 
-2 points for every dollar spent over $100
+## Tech Stack
 
-1 point for every dollar spent between $50 and $100
+* Java 8
+* Spring Boot 3.x
+* Spring Data JPA
+* H2 In-Memory Database
+* Maven
+* JUnit 5
+* Mockito
 
-Example:
+---
 
-purchase = $120
+## Project Structure
 
-120 × 2 = 40 points
-
-50 × 1 = 50 points
- Total = 90 points
- ----------------------------------
-
-REST API to fetch reward points
-
-Monthly and total reward calculation per customer
-
-Used H2 in-memory database for quick testing
-
- **Layered Architecture:**
-
-Controller
-
-Service
-
-Repository
-
-data loading using Schema.sql
-
-**Tech Stack**
-
-Java 8
-Spring Boot 3.x
-Spring Data JPA
-H2 In-Memory Database
-Maven
-JUnit 5 (Mockito + Integration Tests)
---------------------------
-PROJECT STRUCTURE:
+```text
 src 
 ├── main 
 │ ├── java 
 │ │ └── com.rewards 
-│ │  ├── controller 
-│ │    │ └── RewardsController.java 
-│ │  ├── service
-│ │ │    ├── RewardsService.java 
-│ │  │   └── RewardsServiceImpl.java 
-│ │  ├── repository 
-│ │  │   └── TransactionRepository.java 
-│ │  ├── entity 
-│ │ │    └── Transaction.java 
-│ │  ├── dto 
-│ │ │    ├── CustomerRewardsResponse.java 
-│ │ │    └── MonthlyRewardPoints.java 
-│ │  ├── exception     
-         ├──ErrorResponse.java
-│ │ │    ├── ResourceNotFoundException.java 
-│ │ │    └── GlobalExceptionHandler.java 
-│ │ └── util 
-│ │     └── RewardsCalculator.java 
+│ │     ├── controller 
+│ │     │   └── RewardsController.java 
+│ │     ├── service
+│ │     │   ├── RewardsService.java 
+│ │     │   └── RewardsServiceImpl.java 
+│ │     ├── repository 
+│ │     │   └── TransactionRepository.java 
+│ │     ├── entity 
+│ │     │   └── Transaction.java 
+│ │     ├── dto 
+│ │     │   ├── CustomerRewardsResponse.java 
+│ │     │   └── MonthlyRewardPoints.java 
+│ │     ├── exception 
+│ │     │   ├── ResourceNotFoundException.java 
+│ │     │   └── GlobalExceptionHandler.java 
+│ │     └── util 
+│ │         └── RewardsCalculator.java 
 │ ├── resources 
 │ │     ├── application.properties 
-│ │     └── Schema.sql 
-│  │ └── test 
-         └── java 
-         └── com.rewards 
-             ├── RewardsController.java 
-             ├── RewardsServiceImplTest.java 
-             └── RewardsIntegrationTests.java
+│ │     └── data.sql 
+│
+└── test 
+    └── java 
+        └── com.rewards 
+            ├── RewardsControllerTest.java 
+            ├── RewardsServiceImplTest.java 
+            └── RewardsIntegrationTest.java
+```
 
-**Get Rewards for All Customers**
+---
 
-GET /api/v1/rewards
+## Reward Calculation Logic
 
- Response:
+* If amount > 100 → 2 * (amount - 100)
+* If amount > 50 → 1 * (amount - 50)
+* Else → 0
+
+### Example
+
+Purchase: $120
+Points = (2 × 20) + (1 × 50) = 90 points
+
+---
+
+## API Endpoints
+
+### 1. Get Rewards for All Customers
+
+**GET** `/api/v1/rewards`
+
+#### Response
+
+```json
 [
   {
     "customerId": 1,
@@ -102,58 +99,95 @@ GET /api/v1/rewards
     "totalPoints": 200
   }
 ]
-**Get Rewards for Single Customer**
+```
 
-GET /api/v1/rewards/{customerId}
+---
 
+### 2. Get Rewards by Customer
 
-**Response**
+**GET** `/api/v1/rewards/{customerId}`
+
+#### Example Request
+
+```
+/api/v1/rewards/1
+```
+
+#### Response
+
+```json
 {
   "customerId": 1,
-  "totalPoints": 365,
-  "monthlySummary": [
+  "monthlyPoints": [
     {
       "month": "JANUARY",
-      "totalAmountSpent": 120,
-      "rewardPoints": 90
+      "totalAmount": 120,
+      "points": 90
     },
     {
       "month": "FEBRUARY",
-      "totalAmountSpent": 75,
-      "rewardPoints": 25
+      "totalAmount": 75,
+      "points": 25
     },
     {
       "month": "MARCH",
-      "totalAmountSpent": 200,
-      "rewardPoints": 250
+      "totalAmount": 200,
+      "points": 250
     }
-  ]
+  ],
+  "totalPoints": 365
 }
+```
 
-** Exception Handling**
+---
+
+## Features
+
+* Calculates rewards per transaction
+* Aggregates rewards per month
+* Returns total rewards per customer
+* Filters last 3 months data
+* Uses BigDecimal for precision
+* Exception handling implemented
+
+---
+
+## Database
+
+H2 In-Memory Database is used.
+
+### Sample Table
+
+```
+transactions
+-------------------------
+id | customer_id | amount | date
+```
+
+---
+
+## Exception Handling
 
 Handled using:
 
-**GlobalExceptionHandler**
+* ResourceNotFoundException
+* GlobalExceptionHandler
 
-**Custom Exception:**
+---
 
-ResourceNotFoundException → when customer not found
+## Testing
 
+* Unit Tests:
 
-** Testing**
-** Unit Tests
-RewardsServiceImplTest
-RewardsControllerTest
+  * RewardsServiceImplTest
+  * RewardsControllerTest
+* Integration Test:
 
-**Integration Tests**
-RewardsIntegrationTest
+  * RewardsIntegrationTest
 
-**Database**
-H2 In-Memory Database
-Preloaded using schema.sql H2 Console
-http://localhost:8080/h2-console
+Covers:
 
-JDBC URL:
-
-jdbc:h2:mem:testdb
+* Success scenarios
+* Invalid URL
+* Customer not found
+* Multiple customers
